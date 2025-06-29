@@ -68,6 +68,7 @@ export default function App() {
               }}
             />
             {usernameError && <p className="text-red-400 text-sm mt-1">{usernameError}</p>}
+            }
           </div>
           
           <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">

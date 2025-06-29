@@ -330,6 +330,7 @@ export default function InitGame({ setRoom, setOrientation, setPlayers }) {
               disabled={isProcessing}
             />
             {roomError && <p className="text-red-400 text-sm mt-1">{roomError}</p>}
+            }
           </div>
           
           <div>
@@ -347,6 +348,7 @@ export default function InitGame({ setRoom, setOrientation, setPlayers }) {
               disabled={isProcessing}
             />
             {tokenError && <p className="text-red-400 text-sm mt-1">{tokenError}</p>}
+            }
           </div>
           
           <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
@@ -395,6 +397,7 @@ export default function InitGame({ setRoom, setOrientation, setPlayers }) {
               disabled={isProcessing}
             />
             {tokenError && <p className="text-red-400 text-sm mt-1">{tokenError}</p>}
+            }
           </div>
           
           <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
