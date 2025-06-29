@@ -6,7 +6,7 @@
 
 @layer base {
   * {
-    @apply border-border;
+    @apply border-white/20;
   }
   body {
     @apply bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white font-sans;
