@@ -6,9 +6,10 @@ import { ethers } from "ethers";
 import token from "./MyToken.json";
 import { validateTokenAmount, validateRoomId } from "../utils/validation";
 import { useWallet } from "../hooks/useWallet";
+import { useSocket } from "../hooks/useSocket";
 const { v4: uuidV4 } = require('uuid');
 
-export default function InitGame({ setRoom, setOrientation, setPlayers }) {
+export default function InitGame({ setRoom, setOrientation, setPlayers, isConnected, emitWithCallback }) {
   const abi = token.abi;
   const [roomDialogOpen, setRoomDialogOpen] = useState(false);
   const [roomInput, setRoomInput] = useState('');
@@ -18,15 +19,30 @@ export default function InitGame({ setRoom, setOrientation, setPlayers }) {
   const [tokenValue, setTokenValue] = useState('');
   const [tokenError, setTokenError] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [serverError, setServerError] = useState("");
   
-  const { account, balance, isConnected, connectWallet, checkNetwork } = useWallet();
+  const { account, balance, isConnected: walletConnected, connectWallet, checkNetwork } = useWallet();
+  const { connectionError } = useSocket();
 
   const validateInputs = (roomId, tokenAmount) => {
-    // Validate room ID
-    const roomValidation = validateRoomId(roomId);
-    if (!roomValidation.isValid) {
-      setRoomError(roomValidation.error);
+    // Clear previous errors
+    setRoomError('');
+    setTokenError('');
+    setServerError('');
+
+    // Check server connection
+    if (!isConnected) {
+      setServerError("Not connected to server. Please wait...");
       return false;
+    }
+
+    // Validate room ID if provided
+    if (roomId) {
+      const roomValidation = validateRoomId(roomId);
+      if (!roomValidation.isValid) {
+        setRoomError(roomValidation.error);
+        return false;
+      }
     }
 
     // Validate token amount
@@ -37,7 +53,7 @@ export default function InitGame({ setRoom, setOrientation, setPlayers }) {
     }
 
     // Check wallet connection
-    if (!isConnected) {
+    if (!walletConnected) {
       setTokenError("Please connect your wallet first");
       return false;
     }
@@ -48,9 +64,6 @@ export default function InitGame({ setRoom, setOrientation, setPlayers }) {
       return false;
     }
 
-    // Clear previous errors
-    setRoomError('');
-    setTokenError('');
     return true;
   };
 
@@ -63,7 +76,7 @@ export default function InitGame({ setRoom, setOrientation, setPlayers }) {
     
     try {
       // Connect wallet if not connected
-      if (!isConnected) {
+      if (!walletConnected) {
         const connected = await connectWallet();
         if (!connected) {
           setTokenError("Failed to connect wallet");
@@ -95,19 +108,24 @@ export default function InitGame({ setRoom, setOrientation, setPlayers }) {
       const tx = await contract.receiveFunds(account, tokenValue, roomInput, 0);
       await tx.wait();
       
-      socket.emit("joinRoom", { roomId: roomInput }, (r) => {
-        if (r.error) {
-          setRoomError(r.message);
-          return;
-        }
-        console.log("response: ", r);
-        setRoom(r.roomId);
-        setPlayers(r.players);
+      // Use the new socket method with proper error handling
+      try {
+        const response = await emitWithCallback("joinRoom", { roomId: roomInput });
+        
+        console.log("Join room response:", response);
+        setRoom(response.roomId);
+        setPlayers(response.players);
         setOrientation("black");
         setRoomDialogOpen(false);
         setRoomInput('');
         setTokenValue('');
-      });
+      } catch (socketError) {
+        setServerError(socketError.message);
+        // Note: Blockchain transaction already went through, 
+        // user might need to contact support
+        console.error("Socket error after successful blockchain transaction:", socketError);
+      }
+      
     } catch (error) {
       console.error('Join room error:', error);
       if (error.code === 4001) {
@@ -127,23 +145,13 @@ export default function InitGame({ setRoom, setOrientation, setPlayers }) {
     
     const roomID = uuidV4();
     
-    // Validate token amount only for create room
-    const tokenValidation = validateTokenAmount(tokenValue, 10);
-    if (!tokenValidation.isValid) {
-      setTokenError(tokenValidation.error);
-      return;
-    }
-
-    if (!isConnected) {
-      setTokenError("Please connect your wallet first");
-      return;
-    }
+    if (!validateInputs(null, tokenValue)) return;
 
     setIsProcessing(true);
     
     try {
       // Connect wallet if not connected
-      if (!isConnected) {
+      if (!walletConnected) {
         const connected = await connectWallet();
         if (!connected) {
           setTokenError("Failed to connect wallet");
@@ -175,15 +183,20 @@ export default function InitGame({ setRoom, setOrientation, setPlayers }) {
       const tx = await contract.receiveFunds(account, tokenValue, roomID, 1);
       await tx.wait();
       
-      socket.emit("createRoom", roomID, (r) => {
-        console.log(r);
-        setRoom(r);
+      // Use the new socket method with proper error handling
+      try {
+        const response = await emitWithCallback("createRoom", roomID);
+        
+        console.log("Create room response:", response);
+        setRoom(response);
         setOrientation("white");
         setCreateRoomTokenDialog(false);
         setTokenValue('');
-      });
+      } catch (socketError) {
+        setServerError(socketError.message);
+        console.error("Socket error after successful blockchain transaction:", socketError);
+      }
       
-      setTokenError("");
     } catch (error) {
       console.error('Create room error:', error);
       if (error.code === 4001) {
@@ -210,9 +223,19 @@ export default function InitGame({ setRoom, setOrientation, setPlayers }) {
             Stake your tokens and prove your chess mastery. Winner takes all!
           </p>
           
+          {/* Connection Status */}
+          {!isConnected && (
+            <div className="card p-4 max-w-md mx-auto bg-yellow-500/20 border-yellow-500/50">
+              <p className="text-yellow-400 font-semibold">⚠️ Connecting to server...</p>
+              <p className="text-white/70 text-sm">
+                {connectionError || 'Please wait while we establish connection'}
+              </p>
+            </div>
+          )}
+          
           {/* Wallet Status */}
           <div className="card p-4 max-w-md mx-auto">
-            {isConnected ? (
+            {walletConnected ? (
               <div className="space-y-2">
                 <p className="text-green-400 font-semibold">✓ Wallet Connected</p>
                 <p className="text-white/70 text-sm">
@@ -226,8 +249,9 @@ export default function InitGame({ setRoom, setOrientation, setPlayers }) {
               <button
                 onClick={connectWallet}
                 className="btn-primary"
+                disabled={!isConnected}
               >
-                Connect Wallet
+                {!isConnected ? 'Server Connecting...' : 'Connect Wallet'}
               </button>
             )}
           </div>
@@ -237,7 +261,8 @@ export default function InitGame({ setRoom, setOrientation, setPlayers }) {
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
           <button
             onClick={() => setCoinStore(true)}
-            className="btn-secondary min-w-[200px] flex items-center justify-center gap-2"
+            disabled={!isConnected}
+            className="btn-secondary min-w-[200px] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
@@ -247,7 +272,7 @@ export default function InitGame({ setRoom, setOrientation, setPlayers }) {
           
           <button
             onClick={() => setCreateRoomTokenDialog(true)}
-            disabled={!isConnected}
+            disabled={!walletConnected || !isConnected}
             className="btn-primary min-w-[200px] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -258,7 +283,7 @@ export default function InitGame({ setRoom, setOrientation, setPlayers }) {
           
           <button
             onClick={() => setRoomDialogOpen(true)}
-            disabled={!isConnected}
+            disabled={!walletConnected || !isConnected}
             className="btn-secondary min-w-[200px] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -311,6 +336,7 @@ export default function InitGame({ setRoom, setOrientation, setPlayers }) {
           setTokenValue('');
           setRoomError('');
           setTokenError('');
+          setServerError('');
         }}
         title="Join Game Room"
         subtitle="Enter room ID and your bet amount"
@@ -325,12 +351,12 @@ export default function InitGame({ setRoom, setOrientation, setPlayers }) {
               onChange={(e) => {
                 setRoomInput(e.target.value);
                 setRoomError('');
+                setServerError('');
               }}
               className="input-field"
-              disabled={isProcessing}
+              disabled={isProcessing || !isConnected}
             />
             {roomError && <p className="text-red-400 text-sm mt-1">{roomError}</p>}
-            }
           </div>
           
           <div>
@@ -341,15 +367,21 @@ export default function InitGame({ setRoom, setOrientation, setPlayers }) {
               onChange={(e) => {
                 setTokenValue(e.target.value);
                 setTokenError('');
+                setServerError('');
               }}
               className="input-field"
               min="10"
               step="1"
-              disabled={isProcessing}
+              disabled={isProcessing || !isConnected}
             />
             {tokenError && <p className="text-red-400 text-sm mt-1">{tokenError}</p>}
-            }
           </div>
+          
+          {serverError && (
+            <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-3">
+              <p className="text-red-400 text-sm">{serverError}</p>
+            </div>
+          )}
           
           <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
             <p className="text-blue-400 text-sm font-medium">Requirements:</p>
@@ -357,15 +389,19 @@ export default function InitGame({ setRoom, setOrientation, setPlayers }) {
               <li>• Valid UUID room ID</li>
               <li>• Minimum 10 DGC tokens</li>
               <li>• Sufficient token balance</li>
+              <li>• Server connection required</li>
             </ul>
           </div>
           
           <button 
             onClick={handleJoinRoom} 
-            disabled={isProcessing || !isConnected}
+            disabled={isProcessing || !walletConnected || !isConnected}
             className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isProcessing ? 'Processing Transaction...' : 'Join Room & Place Bet'}
+            {isProcessing ? 'Processing Transaction...' : 
+             !isConnected ? 'Connecting to Server...' :
+             !walletConnected ? 'Connect Wallet First' :
+             'Join Room & Place Bet'}
           </button>
         </div>
       </Modal>
@@ -376,6 +412,7 @@ export default function InitGame({ setRoom, setOrientation, setPlayers }) {
           setCreateRoomTokenDialog(false);
           setTokenValue('');
           setTokenError('');
+          setServerError('');
         }}
         title="Create Game Room"
         subtitle="Set your bet amount to create a new room"
@@ -390,15 +427,21 @@ export default function InitGame({ setRoom, setOrientation, setPlayers }) {
               onChange={(e) => {
                 setTokenValue(e.target.value);
                 setTokenError('');
+                setServerError('');
               }}
               className="input-field"
               min="10"
               step="1"
-              disabled={isProcessing}
+              disabled={isProcessing || !isConnected}
             />
             {tokenError && <p className="text-red-400 text-sm mt-1">{tokenError}</p>}
-            }
           </div>
+          
+          {serverError && (
+            <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-3">
+              <p className="text-red-400 text-sm">{serverError}</p>
+            </div>
+          )}
           
           <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
             <p className="text-green-400 text-sm font-medium">Room Creation:</p>
@@ -406,15 +449,19 @@ export default function InitGame({ setRoom, setOrientation, setPlayers }) {
               <li>• You'll play as White</li>
               <li>• Room ID will be generated automatically</li>
               <li>• Share the room ID with your opponent</li>
+              <li>• Server connection required</li>
             </ul>
           </div>
           
           <button 
             onClick={handleCreateRoom} 
-            disabled={isProcessing || !isConnected}
+            disabled={isProcessing || !walletConnected || !isConnected}
             className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isProcessing ? 'Processing Transaction...' : 'Create Room & Place Bet'}
+            {isProcessing ? 'Processing Transaction...' : 
+             !isConnected ? 'Connecting to Server...' :
+             !walletConnected ? 'Connect Wallet First' :
+             'Create Room & Place Bet'}
           </button>
         </div>
       </Modal>

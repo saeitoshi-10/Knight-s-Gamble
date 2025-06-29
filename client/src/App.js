@@ -3,7 +3,9 @@ import Game from "./Game";
 import socket from "./socket";
 import Modal from "./components/Modal";
 import InitGame from "./components/InitGame";
+import ConnectionStatus from "./components/ConnectionStatus";
 import { validateUsername } from "./utils/validation";
+import { useSocket } from "./hooks/useSocket";
 
 export default function App() {
   const [username, setUsername] = useState("");
@@ -13,35 +15,77 @@ export default function App() {
   const [room, setRoom] = useState("");
   const [orientation, setOrientation] = useState("");
   const [players, setPlayers] = useState([]);
+  const [gameStarted, setGameStarted] = useState(false);
+
+  const { isConnected, connectionError, emitWithCallback } = useSocket();
 
   // reset states for new game
   const cleanup = useCallback(() => {
     setRoom("");
     setOrientation("");
-    setPlayers("");
+    setPlayers([]);
+    setGameStarted(false);
   }, []);
 
   useEffect(() => {
+    // Listen for opponent joined
     socket.on("opponentJoined", (roomData) => {
-      console.log("roomData", roomData);
+      console.log("Opponent joined:", roomData);
       setPlayers(roomData.players);
     });
+
+    // Listen for game started event
+    socket.on("gameStarted", (data) => {
+      console.log("Game started:", data);
+      setGameStarted(true);
+      setPlayers(data.room.players);
+    });
+
+    // Listen for room created event
+    socket.on("roomCreated", (data) => {
+      console.log("Room created:", data);
+    });
+
+    // Listen for server errors
+    socket.on("error", (error) => {
+      console.error("Server error:", error);
+      // You can show a toast notification here
+    });
+
+    return () => {
+      socket.off("opponentJoined");
+      socket.off("gameStarted");
+      socket.off("roomCreated");
+      socket.off("error");
+    };
   }, []);
 
-  const handleUsernameSubmit = () => {
+  const handleUsernameSubmit = async () => {
     const validation = validateUsername(username);
     if (!validation.isValid) {
       setUsernameError(validation.error);
       return;
     }
-    
-    socket.emit("username", username.trim());
-    setUsernameSubmitted(true);
-    setUsernameError("");
+
+    if (!isConnected) {
+      setUsernameError("Not connected to server. Please wait...");
+      return;
+    }
+
+    try {
+      // Send username to server with validation
+      socket.emit("username", username.trim());
+      setUsernameSubmitted(true);
+      setUsernameError("");
+    } catch (error) {
+      setUsernameError("Failed to set username. Please try again.");
+    }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+      <ConnectionStatus />
+      
       <Modal
         isOpen={!usernameSubmitted}
         onClose={() => {}}
@@ -61,6 +105,7 @@ export default function App() {
               className="input-field"
               autoFocus
               maxLength={20}
+              disabled={!isConnected}
               onKeyPress={(e) => {
                 if (e.key === 'Enter') {
                   handleUsernameSubmit();
@@ -68,7 +113,7 @@ export default function App() {
               }}
             />
             {usernameError && <p className="text-red-400 text-sm mt-1">{usernameError}</p>}
-            }
+            {connectionError && <p className="text-yellow-400 text-sm mt-1">{connectionError}</p>}
           </div>
           
           <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
@@ -82,10 +127,10 @@ export default function App() {
           
           <button
             onClick={handleUsernameSubmit}
-            disabled={!username.trim()}
+            disabled={!username.trim() || !isConnected}
             className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Continue
+            {!isConnected ? 'Connecting...' : 'Continue'}
           </button>
         </div>
       </Modal>
@@ -98,12 +143,15 @@ export default function App() {
             username={username}
             players={players}
             cleanup={cleanup}
+            gameStarted={gameStarted}
           />
         ) : (
           <InitGame
             setRoom={setRoom}
             setOrientation={setOrientation}
             setPlayers={setPlayers}
+            isConnected={isConnected}
+            emitWithCallback={emitWithCallback}
           />
         )}
       </div>
