@@ -1,12 +1,10 @@
 import { useEffect, useState, useCallback } from "react";
-import { Container, TextField } from "@mui/material";
 import Game from "./Game";
-import socket from "./socket"
-import CustomDialog from "./components/CustomDialog";
+import socket from "./socket";
+import Modal from "./components/Modal";
 import InitGame from "./components/InitGame";
 
 export default function App() {
-
   const [username, setUsername] = useState("");
   const [usernameSubmitted, setUsernameSubmitted] = useState(false);
   
@@ -21,55 +19,60 @@ export default function App() {
     setPlayers("");
   }, []);
 
-  useEffect (() => {
+  useEffect(() => {
     socket.on("opponentJoined", (roomData) => {
       console.log("roomData", roomData);
       setPlayers(roomData.players);
-    })
+    });
   }, []);
 
   return (
-    <Container>
-      <CustomDialog
-        open = {!usernameSubmitted}
-        handleClose = {() => setUsernameSubmitted(true)}
-        title = "username"
-        contentText = "Pick a username"
-        handleContinue={() => {
-          if (!username) return; // no username entered
-          socket.emit("username", username); // send username socket data
-          setUsernameSubmitted(true);
-        }}
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+      <Modal
+        isOpen={!usernameSubmitted}
+        onClose={() => setUsernameSubmitted(true)}
+        title="Welcome to Chess Betting"
+        subtitle="Choose your username to get started"
       >
-        <TextField
-          autoFocus //auto focus on text field
-          margin = "dense"
-          id = "username"
-          label = "Username"
-          name = "username"
-          value = {username}
-          required
-          onChange = {(e) => setUsername(e.target.value)} // set username to value
-          type = "text"
-          fullWidth
-          variant = "standard"
-        />
-      </CustomDialog>
-      {room ? (
-        <Game
-          room = {room}
-          orientation = {orientation}
-          username = {username}
-          players = {players}
-          cleanup = {cleanup}
-        />
-      ) : (
-        <InitGame
-          setRoom = {setRoom}
-          setOrientation = {setOrientation}
-          setPlayers = {setPlayers}
-        />
-      )}
-    </Container>
+        <div className="space-y-4">
+          <input
+            type="text"
+            placeholder="Enter your username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            className="input-field"
+            autoFocus
+          />
+          <button
+            onClick={() => {
+              if (!username.trim()) return;
+              socket.emit("username", username);
+              setUsernameSubmitted(true);
+            }}
+            className="btn-primary w-full"
+          >
+            Continue
+          </button>
+        </div>
+      </Modal>
+
+      <div className="container mx-auto px-4 py-8">
+        {room ? (
+          <Game
+            room={room}
+            orientation={orientation}
+            username={username}
+            players={players}
+            cleanup={cleanup}
+          />
+        ) : (
+          <InitGame
+            setRoom={setRoom}
+            setOrientation={setOrientation}
+            setPlayers={setPlayers}
+          />
+        )}
+      </div>
+    </div>
   );
 }
