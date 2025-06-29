@@ -119,7 +119,7 @@ export default function InitGame({ setRoom, setOrientation, setPlayers }) {
             className="btn-secondary min-w-[200px] flex items-center justify-center gap-2"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013 3v1" />
             </svg>
             Join Room
           </button>
@@ -184,9 +184,7 @@ export default function InitGame({ setRoom, setOrientation, setPlayers }) {
             min="10"
           />
           {roomError && <p className="text-red-400 text-sm">{roomError}</p>}
-          }
           {tokenError && <p className="text-red-400 text-sm">{tokenError}</p>}
-          }
           <button onClick={handleJoinRoom} className="btn-primary w-full">
             Join Room & Place Bet
           </button>
@@ -210,7 +208,6 @@ export default function InitGame({ setRoom, setOrientation, setPlayers }) {
             min="10"
           />
           {tokenError && <p className="text-red-400 text-sm">{tokenError}</p>}
-          }
           <button onClick={handleCreateRoom} className="btn-primary w-full">
             Create Room & Place Bet
           </button>
