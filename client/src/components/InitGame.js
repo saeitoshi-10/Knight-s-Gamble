@@ -7,6 +7,7 @@ import token from "./MyToken.json";
 import { validateTokenAmount, validateRoomId } from "../utils/validation";
 import { useWallet } from "../hooks/useWallet";
 import { useSocket } from "../hooks/useSocket";
+import { useHealthMonitor } from "../hooks/useHealthMonitor";
 const { v4: uuidV4 } = require('uuid');
 
 export default function InitGame({ setRoom, setOrientation, setPlayers, isConnected, emitWithCallback }) {
@@ -23,6 +24,7 @@ export default function InitGame({ setRoom, setOrientation, setPlayers, isConnec
   
   const { account, balance, isConnected: walletConnected, connectWallet, checkNetwork } = useWallet();
   const { connectionError } = useSocket();
+  const { isHealthy, isBlockchainReady } = useHealthMonitor();
 
   const validateInputs = (roomId, tokenAmount) => {
     // Clear previous errors
@@ -30,9 +32,19 @@ export default function InitGame({ setRoom, setOrientation, setPlayers, isConnec
     setTokenError('');
     setServerError('');
 
-    // Check server connection
+    // Check server connection and health
     if (!isConnected) {
       setServerError("Not connected to server. Please wait...");
+      return false;
+    }
+
+    if (!isHealthy) {
+      setServerError("Server is experiencing issues. Please wait...");
+      return false;
+    }
+
+    if (!isBlockchainReady) {
+      setServerError("Blockchain service is not ready. Please wait...");
       return false;
     }
 
@@ -211,6 +223,8 @@ export default function InitGame({ setRoom, setOrientation, setPlayers, isConnec
     }
   };
 
+  const canInteract = isConnected && isHealthy && isBlockchainReady;
+
   return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="text-center space-y-8 animate-fade-in">
@@ -223,13 +237,27 @@ export default function InitGame({ setRoom, setOrientation, setPlayers, isConnec
             Stake your tokens and prove your chess mastery. Winner takes all!
           </p>
           
-          {/* Connection Status */}
-          {!isConnected && (
+          {/* System Status */}
+          {(!isConnected || !isHealthy || !isBlockchainReady) && (
             <div className="card p-4 max-w-md mx-auto bg-yellow-500/20 border-yellow-500/50">
-              <p className="text-yellow-400 font-semibold">⚠️ Connecting to server...</p>
-              <p className="text-white/70 text-sm">
-                {connectionError || 'Please wait while we establish connection'}
-              </p>
+              <p className="text-yellow-400 font-semibold">⚠️ System Status</p>
+              <div className="text-white/70 text-sm mt-2 space-y-1">
+                <div className="flex justify-between">
+                  <span>Server:</span>
+                  <span className={isConnected && isHealthy ? 'text-green-400' : 'text-red-400'}>
+                    {isConnected && isHealthy ? '✅ Ready' : '❌ Issues'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Blockchain:</span>
+                  <span className={isBlockchainReady ? 'text-green-400' : 'text-yellow-400'}>
+                    {isBlockchainReady ? '✅ Ready' : '⚠️ Issues'}
+                  </span>
+                </div>
+              </div>
+              {connectionError && (
+                <p className="text-white/70 text-sm mt-2">{connectionError}</p>
+              )}
             </div>
           )}
           
@@ -249,9 +277,9 @@ export default function InitGame({ setRoom, setOrientation, setPlayers, isConnec
               <button
                 onClick={connectWallet}
                 className="btn-primary"
-                disabled={!isConnected}
+                disabled={!canInteract}
               >
-                {!isConnected ? 'Server Connecting...' : 'Connect Wallet'}
+                {!canInteract ? 'System Not Ready...' : 'Connect Wallet'}
               </button>
             )}
           </div>
@@ -261,7 +289,7 @@ export default function InitGame({ setRoom, setOrientation, setPlayers, isConnec
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
           <button
             onClick={() => setCoinStore(true)}
-            disabled={!isConnected}
+            disabled={!canInteract}
             className="btn-secondary min-w-[200px] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -272,7 +300,7 @@ export default function InitGame({ setRoom, setOrientation, setPlayers, isConnec
           
           <button
             onClick={() => setCreateRoomTokenDialog(true)}
-            disabled={!walletConnected || !isConnected}
+            disabled={!walletConnected || !canInteract}
             className="btn-primary min-w-[200px] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -283,7 +311,7 @@ export default function InitGame({ setRoom, setOrientation, setPlayers, isConnec
           
           <button
             onClick={() => setRoomDialogOpen(true)}
-            disabled={!walletConnected || !isConnected}
+            disabled={!walletConnected || !canInteract}
             className="btn-secondary min-w-[200px] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -354,7 +382,7 @@ export default function InitGame({ setRoom, setOrientation, setPlayers, isConnec
                 setServerError('');
               }}
               className="input-field"
-              disabled={isProcessing || !isConnected}
+              disabled={isProcessing || !canInteract}
             />
             {roomError && <p className="text-red-400 text-sm mt-1">{roomError}</p>}
           </div>
@@ -372,7 +400,7 @@ export default function InitGame({ setRoom, setOrientation, setPlayers, isConnec
               className="input-field"
               min="10"
               step="1"
-              disabled={isProcessing || !isConnected}
+              disabled={isProcessing || !canInteract}
             />
             {tokenError && <p className="text-red-400 text-sm mt-1">{tokenError}</p>}
           </div>
@@ -389,17 +417,17 @@ export default function InitGame({ setRoom, setOrientation, setPlayers, isConnec
               <li>• Valid UUID room ID</li>
               <li>• Minimum 10 DGC tokens</li>
               <li>• Sufficient token balance</li>
-              <li>• Server connection required</li>
+              <li>• All systems operational</li>
             </ul>
           </div>
           
           <button 
             onClick={handleJoinRoom} 
-            disabled={isProcessing || !walletConnected || !isConnected}
+            disabled={isProcessing || !walletConnected || !canInteract}
             className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isProcessing ? 'Processing Transaction...' : 
-             !isConnected ? 'Connecting to Server...' :
+             !canInteract ? 'System Not Ready...' :
              !walletConnected ? 'Connect Wallet First' :
              'Join Room & Place Bet'}
           </button>
@@ -432,7 +460,7 @@ export default function InitGame({ setRoom, setOrientation, setPlayers, isConnec
               className="input-field"
               min="10"
               step="1"
-              disabled={isProcessing || !isConnected}
+              disabled={isProcessing || !canInteract}
             />
             {tokenError && <p className="text-red-400 text-sm mt-1">{tokenError}</p>}
           </div>
@@ -449,17 +477,17 @@ export default function InitGame({ setRoom, setOrientation, setPlayers, isConnec
               <li>• You'll play as White</li>
               <li>• Room ID will be generated automatically</li>
               <li>• Share the room ID with your opponent</li>
-              <li>• Server connection required</li>
+              <li>• All systems must be operational</li>
             </ul>
           </div>
           
           <button 
             onClick={handleCreateRoom} 
-            disabled={isProcessing || !walletConnected || !isConnected}
+            disabled={isProcessing || !walletConnected || !canInteract}
             className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isProcessing ? 'Processing Transaction...' : 
-             !isConnected ? 'Connecting to Server...' :
+             !canInteract ? 'System Not Ready...' :
              !walletConnected ? 'Connect Wallet First' :
              'Create Room & Place Bet'}
           </button>
