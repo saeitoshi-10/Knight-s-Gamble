@@ -4,9 +4,9 @@ import socket from "../socket";
 import CoinStore from './CoinStore';
 import { ethers } from "ethers";
 import token from "./MyToken.json";
+import { validateTokenAmount, validateRoomId } from "../utils/validation";
+import { useWallet } from "../hooks/useWallet";
 const { v4: uuidV4 } = require('uuid');
-
-const { ethereum } = window;
 
 export default function InitGame({ setRoom, setOrientation, setPlayers }) {
   const abi = token.abi;
@@ -15,67 +15,186 @@ export default function InitGame({ setRoom, setOrientation, setPlayers }) {
   const [roomError, setRoomError] = useState('');
   const [coinStore, setCoinStore] = useState(false);
   const [createRoomTokenDialog, setCreateRoomTokenDialog] = useState(false);
-  const [tokenValue, setTokenValue] = useState(0);
+  const [tokenValue, setTokenValue] = useState('');
   const [tokenError, setTokenError] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
+  
+  const { account, balance, isConnected, connectWallet, checkNetwork } = useWallet();
+
+  const validateInputs = (roomId, tokenAmount) => {
+    // Validate room ID
+    const roomValidation = validateRoomId(roomId);
+    if (!roomValidation.isValid) {
+      setRoomError(roomValidation.error);
+      return false;
+    }
+
+    // Validate token amount
+    const tokenValidation = validateTokenAmount(tokenAmount, 10);
+    if (!tokenValidation.isValid) {
+      setTokenError(tokenValidation.error);
+      return false;
+    }
+
+    // Check wallet connection
+    if (!isConnected) {
+      setTokenError("Please connect your wallet first");
+      return false;
+    }
+
+    // Check network
+    if (!checkNetwork()) {
+      setTokenError("Please switch to the correct network");
+      return false;
+    }
+
+    // Clear previous errors
+    setRoomError('');
+    setTokenError('');
+    return true;
+  };
 
   const handleJoinRoom = async () => {
-    const provider = await new ethers.BrowserProvider(window.ethereum);
-    const signer = await provider.getSigner();
-    const contract = await new ethers.Contract("0x5FbDB2315678afecb367f032d93F642f64180aa3", abi, signer);
+    if (isProcessing) return;
+    
+    if (!validateInputs(roomInput, tokenValue)) return;
 
-    if (!roomInput || tokenValue < 10) return;
+    setIsProcessing(true);
     
     try {
-      await ethereum.request({
-        "method": "wallet_switchEthereumChain",
-        "params": [{ "chainId": "0x7A69" }]
-      });
+      // Connect wallet if not connected
+      if (!isConnected) {
+        const connected = await connectWallet();
+        if (!connected) {
+          setTokenError("Failed to connect wallet");
+          return;
+        }
+      }
+
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const contract = new ethers.Contract("0x5FbDB2315678afecb367f032d93F642f64180aa3", abi, signer);
+
+      // Check token balance before transaction
+      const userBalance = await contract.balanceOf(account);
+      const requiredAmount = ethers.parseUnits(tokenValue, 18);
       
-      const accounts = await ethereum.request({ method: "eth_requestAccounts" });
-      const tx = await contract.receiveFunds(accounts[0], tokenValue, roomInput, 0);
+      if (userBalance < requiredAmount) {
+        setTokenError(`Insufficient token balance. You have ${ethers.formatUnits(userBalance, 18)} DGC but need ${tokenValue} DGC`);
+        return;
+      }
+
+      // Estimate gas before transaction
+      try {
+        await contract.receiveFunds.estimateGas(account, tokenValue, roomInput, 0);
+      } catch (gasError) {
+        setTokenError("Transaction would fail. Please check your inputs and try again.");
+        return;
+      }
+
+      const tx = await contract.receiveFunds(account, tokenValue, roomInput, 0);
       await tx.wait();
       
       socket.emit("joinRoom", { roomId: roomInput }, (r) => {
-        if (r.error) return setRoomError(r.message);
+        if (r.error) {
+          setRoomError(r.message);
+          return;
+        }
         console.log("response: ", r);
         setRoom(r.roomId);
         setPlayers(r.players);
         setOrientation("black");
         setRoomDialogOpen(false);
+        setRoomInput('');
+        setTokenValue('');
       });
     } catch (error) {
-      console.log(error);
-      setTokenError(error.message || "Transaction failed");
+      console.error('Join room error:', error);
+      if (error.code === 4001) {
+        setTokenError("Transaction rejected by user");
+      } else if (error.code === -32603) {
+        setTokenError("Transaction failed. Please check your balance and try again.");
+      } else {
+        setTokenError(error.message || "Transaction failed");
+      }
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   const handleCreateRoom = async () => {
-    const provider = new ethers.BrowserProvider(window.ethereum);
-    const signer = await provider.getSigner();
-    const contract = new ethers.Contract("0x5FbDB2315678afecb367f032d93F642f64180aa3", abi, signer);
+    if (isProcessing) return;
+    
     const roomID = uuidV4();
     
+    // Validate token amount only for create room
+    const tokenValidation = validateTokenAmount(tokenValue, 10);
+    if (!tokenValidation.isValid) {
+      setTokenError(tokenValidation.error);
+      return;
+    }
+
+    if (!isConnected) {
+      setTokenError("Please connect your wallet first");
+      return;
+    }
+
+    setIsProcessing(true);
+    
     try {
-      await ethereum.request({
-        "method": "wallet_switchEthereumChain",
-        "params": [{ "chainId": "0x7A69" }]
-      });
+      // Connect wallet if not connected
+      if (!isConnected) {
+        const connected = await connectWallet();
+        if (!connected) {
+          setTokenError("Failed to connect wallet");
+          return;
+        }
+      }
+
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const contract = new ethers.Contract("0x5FbDB2315678afecb367f032d93F642f64180aa3", abi, signer);
       
-      const accounts = await ethereum.request({ method: "eth_requestAccounts" });
-      const tx = await contract.receiveFunds(accounts[0], tokenValue, roomID, 1);
+      // Check token balance before transaction
+      const userBalance = await contract.balanceOf(account);
+      const requiredAmount = ethers.parseUnits(tokenValue, 18);
+      
+      if (userBalance < requiredAmount) {
+        setTokenError(`Insufficient token balance. You have ${ethers.formatUnits(userBalance, 18)} DGC but need ${tokenValue} DGC`);
+        return;
+      }
+
+      // Estimate gas before transaction
+      try {
+        await contract.receiveFunds.estimateGas(account, tokenValue, roomID, 1);
+      } catch (gasError) {
+        setTokenError("Transaction would fail. Please check your inputs and try again.");
+        return;
+      }
+
+      const tx = await contract.receiveFunds(account, tokenValue, roomID, 1);
       await tx.wait();
       
       socket.emit("createRoom", roomID, (r) => {
         console.log(r);
         setRoom(r);
         setOrientation("white");
+        setCreateRoomTokenDialog(false);
+        setTokenValue('');
       });
       
       setTokenError("");
-      setTokenValue(0);
-      setCreateRoomTokenDialog(false);
     } catch (error) {
-      setTokenError(error.message || "Transaction failed");
+      console.error('Create room error:', error);
+      if (error.code === 4001) {
+        setTokenError("Transaction rejected by user");
+      } else if (error.code === -32603) {
+        setTokenError("Transaction failed. Please check your balance and try again.");
+      } else {
+        setTokenError(error.message || "Transaction failed");
+      }
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -90,6 +209,28 @@ export default function InitGame({ setRoom, setOrientation, setPlayers }) {
           <p className="text-xl text-white/70 max-w-2xl mx-auto">
             Stake your tokens and prove your chess mastery. Winner takes all!
           </p>
+          
+          {/* Wallet Status */}
+          <div className="card p-4 max-w-md mx-auto">
+            {isConnected ? (
+              <div className="space-y-2">
+                <p className="text-green-400 font-semibold">✓ Wallet Connected</p>
+                <p className="text-white/70 text-sm">
+                  {account?.slice(0, 6)}...{account?.slice(-4)}
+                </p>
+                <p className="text-white/70 text-sm">
+                  Balance: {balance ? `${parseFloat(balance).toFixed(4)} ETH` : 'Loading...'}
+                </p>
+              </div>
+            ) : (
+              <button
+                onClick={connectWallet}
+                className="btn-primary"
+              >
+                Connect Wallet
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Action Buttons */}
@@ -106,7 +247,8 @@ export default function InitGame({ setRoom, setOrientation, setPlayers }) {
           
           <button
             onClick={() => setCreateRoomTokenDialog(true)}
-            className="btn-primary min-w-[200px] flex items-center justify-center gap-2"
+            disabled={!isConnected}
+            className="btn-primary min-w-[200px] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -116,7 +258,8 @@ export default function InitGame({ setRoom, setOrientation, setPlayers }) {
           
           <button
             onClick={() => setRoomDialogOpen(true)}
-            className="btn-secondary min-w-[200px] flex items-center justify-center gap-2"
+            disabled={!isConnected}
+            className="btn-secondary min-w-[200px] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013 3v1" />
@@ -162,57 +305,113 @@ export default function InitGame({ setRoom, setOrientation, setPlayers }) {
       {/* Modals */}
       <Modal
         isOpen={roomDialogOpen}
-        onClose={() => setRoomDialogOpen(false)}
+        onClose={() => {
+          setRoomDialogOpen(false);
+          setRoomInput('');
+          setTokenValue('');
+          setRoomError('');
+          setTokenError('');
+        }}
         title="Join Game Room"
         subtitle="Enter room ID and your bet amount"
         showCloseButton
       >
         <div className="space-y-4">
-          <input
-            type="text"
-            placeholder="Room ID"
-            value={roomInput}
-            onChange={(e) => setRoomInput(e.target.value)}
-            className="input-field"
-          />
-          <input
-            type="number"
-            placeholder="Token amount to bet (min: 10)"
-            value={tokenValue}
-            onChange={(e) => setTokenValue(e.target.value)}
-            className="input-field"
-            min="10"
-          />
-          {roomError && <p className="text-red-400 text-sm">{roomError}</p>}
-          }
-          {tokenError && <p className="text-red-400 text-sm">{tokenError}</p>}
-          }
-          <button onClick={handleJoinRoom} className="btn-primary w-full">
-            Join Room & Place Bet
+          <div>
+            <input
+              type="text"
+              placeholder="Room ID (UUID format)"
+              value={roomInput}
+              onChange={(e) => {
+                setRoomInput(e.target.value);
+                setRoomError('');
+              }}
+              className="input-field"
+              disabled={isProcessing}
+            />
+            {roomError && <p className="text-red-400 text-sm mt-1">{roomError}</p>}
+          </div>
+          
+          <div>
+            <input
+              type="number"
+              placeholder="Token amount to bet (min: 10)"
+              value={tokenValue}
+              onChange={(e) => {
+                setTokenValue(e.target.value);
+                setTokenError('');
+              }}
+              className="input-field"
+              min="10"
+              step="1"
+              disabled={isProcessing}
+            />
+            {tokenError && <p className="text-red-400 text-sm mt-1">{tokenError}</p>}
+          </div>
+          
+          <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
+            <p className="text-blue-400 text-sm font-medium">Requirements:</p>
+            <ul className="text-white/70 text-sm mt-1 space-y-1">
+              <li>• Valid UUID room ID</li>
+              <li>• Minimum 10 DGC tokens</li>
+              <li>• Sufficient token balance</li>
+            </ul>
+          </div>
+          
+          <button 
+            onClick={handleJoinRoom} 
+            disabled={isProcessing || !isConnected}
+            className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isProcessing ? 'Processing Transaction...' : 'Join Room & Place Bet'}
           </button>
         </div>
       </Modal>
 
       <Modal
         isOpen={createRoomTokenDialog}
-        onClose={() => setCreateRoomTokenDialog(false)}
+        onClose={() => {
+          setCreateRoomTokenDialog(false);
+          setTokenValue('');
+          setTokenError('');
+        }}
         title="Create Game Room"
         subtitle="Set your bet amount to create a new room"
         showCloseButton
       >
         <div className="space-y-4">
-          <input
-            type="number"
-            placeholder="Token amount to bet (min: 10)"
-            value={tokenValue}
-            onChange={(e) => setTokenValue(e.target.value)}
-            className="input-field"
-            min="10"
-          />
-          {tokenError && <p className="text-red-400 text-sm">{tokenError}</p>}
-          }
-          <button onClick={handleCreateRoom} className="btn-primary w-full">
-            Create Room & Place Bet
+          <div>
+            <input
+              type="number"
+              placeholder="Token amount to bet (min: 10)"
+              value={tokenValue}
+              onChange={(e) => {
+                setTokenValue(e.target.value);
+                setTokenError('');
+              }}
+              className="input-field"
+              min="10"
+              step="1"
+              disabled={isProcessing}
+            />
+            {tokenError && <p className="text-red-400 text-sm mt-1">{tokenError}</p>}
+          </div>
+          
+          <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
+            <p className="text-green-400 text-sm font-medium">Room Creation:</p>
+            <ul className="text-white/70 text-sm mt-1 space-y-1">
+              <li>• You'll play as White</li>
+              <li>• Room ID will be generated automatically</li>
+              <li>• Share the room ID with your opponent</li>
+            </ul>
+          </div>
+          
+          <button 
+            onClick={handleCreateRoom} 
+            disabled={isProcessing || !isConnected}
+            className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isProcessing ? 'Processing Transaction...' : 'Create Room & Place Bet'}
           </button>
         </div>
       </Modal>
