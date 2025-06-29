@@ -184,7 +184,9 @@ export default function InitGame({ setRoom, setOrientation, setPlayers }) {
             min="10"
           />
           {roomError && <p className="text-red-400 text-sm">{roomError}</p>}
+          }
           {tokenError && <p className="text-red-400 text-sm">{tokenError}</p>}
+          }
           <button onClick={handleJoinRoom} className="btn-primary w-full">
             Join Room & Place Bet
           </button>
@@ -208,6 +210,7 @@ export default function InitGame({ setRoom, setOrientation, setPlayers }) {
             min="10"
           />
           {tokenError && <p className="text-red-400 text-sm">{tokenError}</p>}
+          }
           <button onClick={handleCreateRoom} className="btn-primary w-full">
             Create Room & Place Bet
           </button>

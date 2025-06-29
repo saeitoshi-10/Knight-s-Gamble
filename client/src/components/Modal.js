@@ -38,6 +38,7 @@ export default function Modal({ isOpen, onClose, title, subtitle, children, show
         <div className="text-center mb-6">
           <h2 className="text-2xl font-bold text-white mb-2">{title}</h2>
           {subtitle && <p className="text-white/70">{subtitle}</p>}
+          }
         </div>
         
         {children}
