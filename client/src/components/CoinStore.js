@@ -83,7 +83,7 @@ export default function CoinStore({ isOpen, onClose }) {
       await tx.wait();
       
       const tokensReceived = BigInt(ethers.parseEther(amount)) * BigInt(1000000);
-      setSuccess(`Successfully bought ${ethers.formatUnits(tokensReceived, 0)} DGC tokens!`);
+      setSuccess(`Successfully bought ${tokensReceived.toLocaleString()} DGC tokens!`);
       setAmount('');
       
       // Update balances
