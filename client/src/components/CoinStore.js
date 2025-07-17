@@ -278,7 +278,7 @@ export default function CoinStore({ isOpen, onClose }) {
                   />
                   <div className="flex justify-between text-sm mt-1">
                     <p className="text-white/50">
-                      You'll receive: {amount ? (BigInt(ethers.parseEther(amount || '0')) * BigInt(1000000)).toString() : '0'} DGC
+                      You'll receive: {amount ? (parseFloat(amount) * 1000000).toLocaleString() : '0'} DGC
                     </p>
                     <p className="text-white/50">
                       Available: {balance ? `${parseFloat(balance).toFixed(4)} ETH` : '0 ETH'}
@@ -288,7 +288,7 @@ export default function CoinStore({ isOpen, onClose }) {
                 
                 <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
                   <p className="text-blue-400 text-sm font-medium">Exchange Rate</p>
-                  <p className="text-white/70 text-sm">1 ETH = 1,000,000 DGC</p>
+                  <p className="text-white/70 text-sm">1 ETH = 1,000,000 DGC tokens</p>
                 </div>
                 
                 <button
