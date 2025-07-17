@@ -177,22 +177,22 @@ export default function InitGame({ setRoom, setOrientation, setPlayers, isConnec
       
       // Check token balance before transaction
       const userBalance = await contract.balanceOf(account);
-      const requiredAmount = BigInt(tokenValue);
+      const requiredAmount = ethers.parseUnits(tokenValue, 0); // Parse as integer tokens
       
       if (userBalance < requiredAmount) {
-        setTokenError(`Insufficient token balance. You have ${userBalance.toString()} DGC but need ${tokenValue} DGC`);
+        setTokenError(`Insufficient token balance. You have ${ethers.formatUnits(userBalance, 0)} DGC but need ${tokenValue} DGC`);
         return;
       }
 
       // Estimate gas before transaction
       try {
-        await contract.placeBet.estimateGas(BigInt(tokenValue), roomID, 0);
+        await contract.placeBet.estimateGas(requiredAmount, roomID, 0);
       } catch (gasError) {
         setTokenError("Transaction would fail. Please check your inputs and try again.");
         return;
       }
 
-      const tx = await contract.placeBet(BigInt(tokenValue), roomID, 0);
+      const tx = await contract.placeBet(requiredAmount, roomID, 0);
       await tx.wait();
       
       // Use the new socket method with proper error handling
