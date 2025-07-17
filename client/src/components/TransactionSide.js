@@ -1,0 +1,1 @@
+// This file is no longer needed - integrated into CoinStore.js

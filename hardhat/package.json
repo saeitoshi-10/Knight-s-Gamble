@@ -1,19 +1,12 @@
 {
   "name": "hardhat",
   "version": "1.0.0",
-  "description": "Smart contracts for Chess Betting DApp",
+  "description": "",
   "main": "index.js",
   "scripts": {
-    "compile": "hardhat compile",
-    "test": "hardhat test",
-    "deploy": "hardhat run scripts/deploy.js",
-    "deploy:localhost": "hardhat run scripts/deploy.js --network localhost",
-    "node": "hardhat node",
-    "generate-abi": "hardhat run scripts/generate-abi.js",
-    "clean": "hardhat clean",
-    "coverage": "hardhat coverage"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["chess", "betting", "blockchain", "smart-contracts"],
+  "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
