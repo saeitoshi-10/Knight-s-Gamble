@@ -100,7 +100,7 @@ io.on('connection', (socket) => {
       await socket.join(roomId);
       
       if (callback) {
-        callback(room.roomId);
+        callback({ roomId: room.roomId, players: room.players });
       }
 
       // Emit room created event
@@ -140,7 +140,7 @@ io.on('connection', (socket) => {
       await socket.join(args.roomId);
 
       if (callback) {
-        callback(room);
+        callback({ roomId: room.roomId, players: room.players });
       }
 
       socket.to(args.roomId).emit('opponentJoined', room);
@@ -167,10 +167,10 @@ io.on('connection', (socket) => {
         console.error(`❌ Blockchain validation failed for room ${args.roomId}:`, blockchainError.message);
       }
 
-      await socket.join(args.roomId);
-
+    } catch (error) {
+      console.error(`❌ Join room error:`, error.message);
       if (callback) {
-        callback(room);
+        callback({ error: true, message: error.message });
       }
     }
   });

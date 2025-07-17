@@ -138,13 +138,13 @@ export default function CoinStore({ isOpen, onClose }) {
       
       // Estimate gas before transaction
       try {
-        await contract.WithdrawCoin.estimateGas(account, amount);
+        await contract.withdrawTokens.estimateGas(ethers.parseUnits(amount, 18));
       } catch (gasError) {
         setError("Transaction would fail. Please check your token balance and try again.");
         return;
       }
       
-      const tx = await contract.WithdrawCoin(account, amount);
+      const tx = await contract.withdrawTokens(ethers.parseUnits(amount, 18));
       await tx.wait();
       
       const ethReceived = parseFloat(amount) / 1000000;

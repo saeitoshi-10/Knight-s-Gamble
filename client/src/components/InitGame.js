@@ -111,13 +111,13 @@ export default function InitGame({ setRoom, setOrientation, setPlayers, isConnec
 
       // Estimate gas before transaction
       try {
-        await contract.receiveFunds.estimateGas(account, tokenValue, roomInput, 0);
+        await contract.placeBet.estimateGas(ethers.parseUnits(tokenValue, 18), roomInput, 1);
       } catch (gasError) {
         setTokenError("Transaction would fail. Please check your inputs and try again.");
         return;
       }
 
-      const tx = await contract.receiveFunds(account, tokenValue, roomInput, 0);
+      const tx = await contract.placeBet(ethers.parseUnits(tokenValue, 18), roomInput, 1);
       await tx.wait();
       
       // Use the new socket method with proper error handling
@@ -125,8 +125,8 @@ export default function InitGame({ setRoom, setOrientation, setPlayers, isConnec
         const response = await emitWithCallback("joinRoom", { roomId: roomInput });
         
         console.log("Join room response:", response);
-        setRoom(response.roomId);
-        setPlayers(response.players);
+        setRoom(response.roomId || roomInput);
+        setPlayers(response.players || []);
         setOrientation("black");
         setRoomDialogOpen(false);
         setRoomInput('');
@@ -186,13 +186,13 @@ export default function InitGame({ setRoom, setOrientation, setPlayers, isConnec
 
       // Estimate gas before transaction
       try {
-        await contract.receiveFunds.estimateGas(account, tokenValue, roomID, 1);
+        await contract.placeBet.estimateGas(ethers.parseUnits(tokenValue, 18), roomID, 0);
       } catch (gasError) {
         setTokenError("Transaction would fail. Please check your inputs and try again.");
         return;
       }
 
-      const tx = await contract.receiveFunds(account, tokenValue, roomID, 1);
+      const tx = await contract.placeBet(ethers.parseUnits(tokenValue, 18), roomID, 0);
       await tx.wait();
       
       // Use the new socket method with proper error handling
@@ -200,7 +200,7 @@ export default function InitGame({ setRoom, setOrientation, setPlayers, isConnec
         const response = await emitWithCallback("createRoom", roomID);
         
         console.log("Create room response:", response);
-        setRoom(response);
+        setRoom(response.roomId || roomID);
         setOrientation("white");
         setCreateRoomTokenDialog(false);
         setTokenValue('');
