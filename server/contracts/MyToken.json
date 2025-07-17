@@ -2,111 +2,8 @@
   "abi": [
     {
       "inputs": [],
-      "stateMutability": "nonpayable",
+      "stateMutability": "payable",
       "type": "constructor"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "available",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "required",
-          "type": "uint256"
-        }
-      ],
-      "name": "InsufficientBalance",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "provided",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "required",
-          "type": "uint256"
-        }
-      ],
-      "name": "InsufficientBet",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint8",
-          "name": "position",
-          "type": "uint8"
-        }
-      ],
-      "name": "InvalidPosition",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint8",
-          "name": "winner",
-          "type": "uint8"
-        }
-      ],
-      "name": "InvalidWinner",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "string",
-          "name": "roomId",
-          "type": "string"
-        }
-      ],
-      "name": "GameAlreadyActive",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "string",
-          "name": "roomId",
-          "type": "string"
-        }
-      ],
-      "name": "GameNotActive",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "string",
-          "name": "roomId",
-          "type": "string"
-        }
-      ],
-      "name": "RoomNotFound",
-      "type": "error"
-    },
-    {
-      "inputs": [],
-      "name": "TransferFailed",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "player",
-          "type": "address"
-        }
-      ],
-      "name": "UnauthorizedPlayer",
-      "type": "error"
     },
     {
       "anonymous": false,
@@ -137,41 +34,10 @@
       "anonymous": false,
       "inputs": [
         {
-          "indexed": true,
+          "indexed": false,
           "internalType": "string",
-          "name": "roomId",
+          "name": "roomID",
           "type": "string"
-        },
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "player",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "amount",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint8",
-          "name": "position",
-          "type": "uint8"
-        }
-      ],
-      "name": "BetPlaced",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "user",
-          "type": "address"
         },
         {
           "indexed": false,
@@ -180,133 +46,7 @@
           "type": "uint256"
         }
       ],
-      "name": "EmergencyWithdrawal",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "string",
-          "name": "roomId",
-          "type": "string"
-        },
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "winner",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "prize",
-          "type": "uint256"
-        }
-      ],
-      "name": "GameFinished",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "string",
-          "name": "roomId",
-          "type": "string"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "totalPot",
-          "type": "uint256"
-        }
-      ],
-      "name": "GameInitialized",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "previousOwner",
-          "type": "address"
-        },
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "newOwner",
-          "type": "address"
-        }
-      ],
-      "name": "OwnershipTransferred",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": false,
-          "internalType": "address",
-          "name": "account",
-          "type": "address"
-        }
-      ],
-      "name": "Paused",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "user",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "ethAmount",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "tokenAmount",
-          "type": "uint256"
-        }
-      ],
-      "name": "TokensDeposited",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "user",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "tokenAmount",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "ethAmount",
-          "type": "uint256"
-        }
-      ],
-      "name": "TokensWithdrawn",
+      "name": "initsuccess",
       "type": "event"
     },
     {
@@ -332,19 +72,6 @@
         }
       ],
       "name": "Transfer",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": false,
-          "internalType": "address",
-          "name": "account",
-          "type": "address"
-        }
-      ],
-      "name": "Unpaused",
       "type": "event"
     },
     {
@@ -415,50 +142,6 @@
       "type": "function"
     },
     {
-      "inputs": [
-        {
-          "internalType": "string[]",
-          "name": "roomIds",
-          "type": "string[]"
-        },
-        {
-          "internalType": "uint8[]",
-          "name": "winners",
-          "type": "uint8[]"
-        }
-      ],
-      "name": "batchFinishGames",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "string",
-          "name": "roomId",
-          "type": "string"
-        }
-      ],
-      "name": "cancelWaitingGame",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "string[]",
-          "name": "roomIds",
-          "type": "string[]"
-        }
-      ],
-      "name": "cleanupFinishedGames",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
       "inputs": [],
       "name": "decimals",
       "outputs": [
@@ -506,11 +189,16 @@
       "inputs": [
         {
           "internalType": "uint256",
-          "name": "amount",
+          "name": "pos",
           "type": "uint256"
+        },
+        {
+          "internalType": "string",
+          "name": "RoomID",
+          "type": "string"
         }
       ],
-      "name": "emergencyWithdraw",
+      "name": "gameEnd",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
@@ -519,80 +207,13 @@
       "inputs": [
         {
           "internalType": "string",
-          "name": "roomId",
+          "name": "RoomID",
           "type": "string"
-        },
-        {
-          "internalType": "uint8",
-          "name": "winner",
-          "type": "uint8"
         }
       ],
-      "name": "finishGame",
+      "name": "gameStart",
       "outputs": [],
       "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "getContractInfo",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "ethBalance",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "tokenSupply",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "string",
-          "name": "roomId",
-          "type": "string"
-        }
-      ],
-      "name": "getRoom",
-      "outputs": [
-        {
-          "internalType": "address",
-          "name": "player1",
-          "type": "address"
-        },
-        {
-          "internalType": "address",
-          "name": "player2",
-          "type": "address"
-        },
-        {
-          "internalType": "uint256",
-          "name": "bet1",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "bet2",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint8",
-          "name": "status",
-          "type": "uint8"
-        },
-        {
-          "internalType": "uint32",
-          "name": "createdAt",
-          "type": "uint32"
-        }
-      ],
-      "stateMutability": "view",
       "type": "function"
     },
     {
@@ -617,30 +238,6 @@
         }
       ],
       "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "string",
-          "name": "roomId",
-          "type": "string"
-        }
-      ],
-      "name": "isRoomActive",
-      "outputs": [
-        {
-          "internalType": "bool",
-          "name": "exists",
-          "type": "bool"
-        },
-        {
-          "internalType": "bool",
-          "name": "isActive",
-          "type": "bool"
-        }
-      ],
-      "stateMutability": "view",
       "type": "function"
     },
     {
@@ -670,51 +267,29 @@
       "type": "function"
     },
     {
-      "inputs": [],
-      "name": "pause",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "paused",
-      "outputs": [
-        {
-          "internalType": "bool",
-          "name": "",
-          "type": "bool"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
       "inputs": [
         {
+          "internalType": "address",
+          "name": "sender",
+          "type": "address"
+        },
+        {
           "internalType": "uint256",
-          "name": "betAmount",
+          "name": "val",
           "type": "uint256"
         },
         {
           "internalType": "string",
-          "name": "roomId",
+          "name": "roomID",
           "type": "string"
         },
         {
-          "internalType": "uint8",
-          "name": "position",
-          "type": "uint8"
+          "internalType": "uint256",
+          "name": "pos",
+          "type": "uint256"
         }
       ],
-      "name": "placeBet",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "renounceOwnership",
+      "name": "receiveFunds",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
@@ -801,34 +376,19 @@
     {
       "inputs": [
         {
-          "internalType": "address",
-          "name": "newOwner",
+          "internalType": "address payable",
+          "name": "_to",
           "type": "address"
-        }
-      ],
-      "name": "transferOwnership",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "unpause",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
+        },
         {
           "internalType": "uint256",
-          "name": "tokenAmount",
+          "name": "val",
           "type": "uint256"
         }
       ],
-      "name": "withdrawTokens",
+      "name": "WithdrawCoin",
       "outputs": [],
-      "stateMutability": "nonpayable",
+      "stateMutability": "payable",
       "type": "function"
     }
   ]

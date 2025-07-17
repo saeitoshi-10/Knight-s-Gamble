@@ -160,7 +160,7 @@ function Game({ players, room, orientation, cleanup, username, gameStarted }) {
 
   const handleGameEnd = async () => {
     try {
-      await emitWithCallback("closeRoom", { roomId: room, winner: winner }, 15000);
+      await emitWithCallback("closeRoom", { roomId: room, winner: winner });
       cleanup();
     } catch (error) {
       console.error("Failed to end game properly:", error);

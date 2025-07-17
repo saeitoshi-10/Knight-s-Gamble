@@ -35,22 +35,14 @@ export default function App() {
     // Listen for opponent joined
     socket.on("opponentJoined", (roomData) => {
       console.log("Opponent joined:", roomData);
-      setPlayers(roomData.players || []);
+      setPlayers(roomData.players);
     });
 
     // Listen for game started event
     socket.on("gameStarted", (data) => {
       console.log("Game started:", data);
       setGameStarted(true);
-      setPlayers(data.room?.players || []);
-    });
-
-    // Listen for game activation failed
-    socket.on("gameActivationFailed", (data) => {
-      console.error("Game activation failed:", data);
-      setGameStarted(false);
-      // Show error to user
-      alert(`Game activation failed: ${data.error}`);
+      setPlayers(data.room.players);
     });
 
     // Listen for room created event
@@ -67,7 +59,6 @@ export default function App() {
     return () => {
       socket.off("opponentJoined");
       socket.off("gameStarted");
-      socket.off("gameActivationFailed");
       socket.off("roomCreated");
       socket.off("error");
     };

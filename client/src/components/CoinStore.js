@@ -28,7 +28,7 @@ export default function CoinStore({ isOpen, onClose }) {
       const contract = new ethers.Contract("0x5FbDB2315678afecb367f032d93F642f64180aa3", abi, signer);
       
       const balance = await contract.balanceOf(account);
-      setTokenBalance(balance.toString());
+      setTokenBalance(ethers.formatUnits(balance, 18));
     } catch (error) {
       console.error('Token balance error:', error);
       setError("Failed to get token balance");
@@ -82,7 +82,7 @@ export default function CoinStore({ isOpen, onClose }) {
       const tx = await contract.deposit({ value: ethValue });
       await tx.wait();
       
-      const tokensReceived = BigInt(ethers.parseEther(amount)) * BigInt(1000000);
+      const tokensReceived = parseFloat(amount) * 1000000;
       setSuccess(`Successfully bought ${tokensReceived.toLocaleString()} DGC tokens!`);
       setAmount('');
       
@@ -138,16 +138,16 @@ export default function CoinStore({ isOpen, onClose }) {
       
       // Estimate gas before transaction
       try {
-        await contract.withdrawTokens.estimateGas(BigInt(amount));
+        await contract.WithdrawCoin.estimateGas(account, amount);
       } catch (gasError) {
         setError("Transaction would fail. Please check your token balance and try again.");
         return;
       }
       
-      const tx = await contract.withdrawTokens(BigInt(amount));
+      const tx = await contract.WithdrawCoin(account, amount);
       await tx.wait();
       
-      const ethReceived = BigInt(amount) / BigInt(1000000);
+      const ethReceived = parseFloat(amount) / 1000000;
       setSuccess(`Successfully sold ${amount} DGC tokens for ${ethReceived.toFixed(6)} ETH!`);
       setAmount('');
       
@@ -210,7 +210,7 @@ export default function CoinStore({ isOpen, onClose }) {
               <div className="card p-4 text-center">
                 <p className="text-white/70 mb-2">DGC Balance</p>
                 <p className="text-xl font-bold text-purple-400">
-                  {tokenBalance !== null ? `${tokenBalance} DGC` : 'Loading...'}
+                  {tokenBalance !== null ? `${parseFloat(tokenBalance).toFixed(0)} DGC` : 'Loading...'}
                 </p>
                 <button
                   onClick={getTokenBalance}
@@ -278,7 +278,7 @@ export default function CoinStore({ isOpen, onClose }) {
                   />
                   <div className="flex justify-between text-sm mt-1">
                     <p className="text-white/50">
-                      You'll receive: {amount ? (BigInt(ethers.parseEther(amount || '0')) * BigInt(1000000)).toString() : '0'} DGC
+                      You'll receive: {amount ? (parseFloat(amount) * 1000000).toLocaleString() : '0'} DGC
                     </p>
                     <p className="text-white/50">
                       Available: {balance ? `${parseFloat(balance).toFixed(4)} ETH` : '0 ETH'}
@@ -322,10 +322,10 @@ export default function CoinStore({ isOpen, onClose }) {
                   />
                   <div className="flex justify-between text-sm mt-1">
                     <p className="text-white/50">
-                      You'll receive: {amount ? ethers.formatEther(BigInt(amount || '0') / BigInt(1000000)) : '0'} ETH
+                      You'll receive: {amount ? (parseFloat(amount) / 1000000).toFixed(6) : '0'} ETH
                     </p>
                     <p className="text-white/50">
-                      Available: {tokenBalance ? `${tokenBalance} DGC` : '0 DGC'}
+                      Available: {tokenBalance ? `${parseFloat(tokenBalance).toFixed(0)} DGC` : '0 DGC'}
                     </p>
                   </div>
                 </div>

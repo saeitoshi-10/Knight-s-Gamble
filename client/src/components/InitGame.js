@@ -102,22 +102,22 @@ export default function InitGame({ setRoom, setOrientation, setPlayers, isConnec
 
       // Check token balance before transaction
       const userBalance = await contract.balanceOf(account);
-      const requiredAmount = BigInt(tokenValue);
+      const requiredAmount = ethers.parseUnits(tokenValue, 18);
       
       if (userBalance < requiredAmount) {
-        setTokenError(`Insufficient token balance. You have ${userBalance.toString()} DGC but need ${tokenValue} DGC`);
+        setTokenError(`Insufficient token balance. You have ${ethers.formatUnits(userBalance, 18)} DGC but need ${tokenValue} DGC`);
         return;
       }
 
       // Estimate gas before transaction
       try {
-        await contract.placeBet.estimateGas(BigInt(tokenValue), roomInput, 1);
+        await contract.receiveFunds.estimateGas(account, tokenValue, roomInput, 0);
       } catch (gasError) {
         setTokenError("Transaction would fail. Please check your inputs and try again.");
         return;
       }
 
-      const tx = await contract.placeBet(BigInt(tokenValue), roomInput, 1);
+      const tx = await contract.receiveFunds(account, tokenValue, roomInput, 0);
       await tx.wait();
       
       // Use the new socket method with proper error handling
@@ -125,8 +125,8 @@ export default function InitGame({ setRoom, setOrientation, setPlayers, isConnec
         const response = await emitWithCallback("joinRoom", { roomId: roomInput });
         
         console.log("Join room response:", response);
-        setRoom(response.roomId || roomInput);
-        setPlayers(response.players || []);
+        setRoom(response.roomId);
+        setPlayers(response.players);
         setOrientation("black");
         setRoomDialogOpen(false);
         setRoomInput('');
@@ -177,22 +177,22 @@ export default function InitGame({ setRoom, setOrientation, setPlayers, isConnec
       
       // Check token balance before transaction
       const userBalance = await contract.balanceOf(account);
-      const requiredAmount = BigInt(tokenValue);
+      const requiredAmount = ethers.parseUnits(tokenValue, 18);
       
       if (userBalance < requiredAmount) {
-        setTokenError(`Insufficient token balance. You have ${userBalance.toString()} DGC but need ${tokenValue} DGC`);
+        setTokenError(`Insufficient token balance. You have ${ethers.formatUnits(userBalance, 18)} DGC but need ${tokenValue} DGC`);
         return;
       }
 
       // Estimate gas before transaction
       try {
-        await contract.placeBet.estimateGas(BigInt(tokenValue), roomID, 0);
+        await contract.receiveFunds.estimateGas(account, tokenValue, roomID, 1);
       } catch (gasError) {
         setTokenError("Transaction would fail. Please check your inputs and try again.");
         return;
       }
 
-      const tx = await contract.placeBet(BigInt(tokenValue), roomID, 0);
+      const tx = await contract.receiveFunds(account, tokenValue, roomID, 1);
       await tx.wait();
       
       // Use the new socket method with proper error handling
@@ -200,7 +200,7 @@ export default function InitGame({ setRoom, setOrientation, setPlayers, isConnec
         const response = await emitWithCallback("createRoom", roomID);
         
         console.log("Create room response:", response);
-        setRoom(response.roomId || roomID);
+        setRoom(response);
         setOrientation("white");
         setCreateRoomTokenDialog(false);
         setTokenValue('');
