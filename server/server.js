@@ -137,34 +137,40 @@ io.on('connection', (socket) => {
         username: socket.data.username
       });
 
-      // Initialize blockchain game
-      try {
-        await blockchainService.gameStart(args.roomId);
-      } catch (blockchainError) {
-        // Revert room join if blockchain fails
-        roomManager.removePlayerFromRoom(socket.id, args.roomId);
-        throw new Error(`Blockchain initialization failed: ${blockchainError.message}`);
-      }
-
       await socket.join(args.roomId);
 
       if (callback) {
         callback(room);
       }
 
-      // Notify other players
       socket.to(args.roomId).emit('opponentJoined', room);
-      
-      // Emit game started event to both players
-      io.to(args.roomId).emit('gameStarted', { 
-        room,
-        message: 'Game has started! Good luck!' 
-      });
 
-    } catch (error) {
-      console.error(`❌ Join room error:`, error.message);
+      // Validate blockchain state and activate room
+      try {
+        const blockchainData = await blockchainService.validateRoomBets(args.roomId);
+        const activatedRoom = roomManager.activateRoom(args.roomId, blockchainData);
+        
+        io.to(args.roomId).emit('gameStarted', { 
+          room: activatedRoom,
+          message: 'Game has started! Good luck!',
+          blockchainData
+        });
+        
+      } catch (blockchainError) {
+        const failedRoom = roomManager.failRoomActivation(args.roomId, blockchainError.message);
+        
+        io.to(args.roomId).emit('gameActivationFailed', {
+          room: failedRoom,
+          error: blockchainError.message
+        });
+        
+        console.error(`❌ Blockchain validation failed for room ${args.roomId}:`, blockchainError.message);
+      }
+
+      await socket.join(args.roomId);
+
       if (callback) {
-        callback({ error: true, message: error.message });
+        callback(room);
       }
     }
   });
@@ -199,8 +205,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Game end handler
-  socket.on('closeRoom', async (data) => {
+  socket.on('closeRoom', async (data, callback) => {
     try {
       if (!data || !data.roomId) {
         throw new Error('Room ID is required');
@@ -211,12 +216,15 @@ io.on('connection', (socket) => {
         throw new Error('Room not found');
       }
 
-      // End game in blockchain
+      if (!room.blockchainValidated) {
+        throw new Error('Cannot end game - blockchain not validated');
+      }
+
       try {
-        await blockchainService.gameEnd(data.winner, data.roomId);
+        await blockchainService.finishGame(data.roomId, data.winner);
       } catch (blockchainError) {
         console.error(`⚠️ Blockchain game end failed:`, blockchainError.message);
-        // Continue with room cleanup even if blockchain fails
+        throw new Error(`Failed to end game on blockchain: ${blockchainError.message}`);
       }
 
       // Update room state
@@ -236,11 +244,19 @@ io.on('connection', (socket) => {
         roomManager.deleteRoom(data.roomId);
       }, 5000);
 
+      if (callback) {
+        callback({ success: true });
+      }
+
       console.log(`🏁 Room closed: ${data.roomId}, winner: ${data.winner}`);
 
     } catch (error) {
       console.error(`❌ Close room error:`, error.message);
-      socket.emit('error', { message: error.message });
+      if (callback) {
+        callback({ error: true, message: error.message });
+      } else {
+        socket.emit('error', { message: error.message });
+      }
     }
   });
 
@@ -254,11 +270,10 @@ io.on('connection', (socket) => {
       if (result) {
         const { room, removedPlayer } = result;
         
-        // Handle blockchain cleanup if game was active
-        if (room.status === 'finished' && room.gameState.isGameOver) {
+        if (room.status === 'finished' && room.gameState.isGameOver && room.blockchainValidated) {
           try {
             const winner = room.players.length > 0 ? room.players[0].color : 2; // 2 = draw
-            await blockchainService.gameEnd(winner, room.roomId);
+            await blockchainService.finishGame(room.roomId, winner);
           } catch (blockchainError) {
             console.error(`⚠️ Blockchain cleanup failed:`, blockchainError.message);
           }
@@ -280,12 +295,10 @@ io.on('connection', (socket) => {
   });
 });
 
-// Periodic cleanup of inactive rooms
 setInterval(() => {
   roomManager.cleanupInactiveRooms();
 }, 10 * 60 * 1000); // Every 10 minutes
 
-// Initialize blockchain service and start server
 async function startServer() {
   try {
     await blockchainService.initialize();
@@ -301,7 +314,6 @@ async function startServer() {
   }
 }
 
-// Graceful shutdown
 process.on('SIGTERM', () => {
   console.log('🛑 SIGTERM received, shutting down gracefully');
   server.close(() => {

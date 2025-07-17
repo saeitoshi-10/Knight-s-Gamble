@@ -5,6 +5,7 @@ class RoomManager {
     this.rooms = new Map();
     this.playerRooms = new Map(); // Track which room each player is in
     this.roomTimeouts = new Map(); // Track room cleanup timeouts
+    this.pendingBlockchainRooms = new Set();
   }
 
   createRoom(roomId, creator) {
@@ -29,8 +30,8 @@ class RoomManager {
         isGameOver: false,
         winner: null
       },
-      betAmount: null,
-      totalPot: 0
+      blockchainValidated: false,
+      blockchainData: null
     };
 
     this.rooms.set(roomId, room);
@@ -73,13 +74,44 @@ class RoomManager {
     };
 
     room.players.push(newPlayer);
-    room.status = 'active';
+    room.status = 'pending_blockchain';
     this.playerRooms.set(player.id, roomId);
+    this.pendingBlockchainRooms.add(roomId);
 
     // Clear room timeout since game is starting
     this.clearRoomTimeout(roomId);
 
     console.log(`👥 Player ${player.username} joined room: ${roomId}`);
+    return room;
+  }
+
+  activateRoom(roomId, blockchainData) {
+    const room = this.rooms.get(roomId);
+    if (!room) {
+      throw new Error('Room not found');
+    }
+
+    room.status = 'active';
+    room.blockchainValidated = true;
+    room.blockchainData = blockchainData;
+    this.pendingBlockchainRooms.delete(roomId);
+
+    console.log(`🎮 Room activated: ${roomId}`);
+    return room;
+  }
+
+  failRoomActivation(roomId, error) {
+    const room = this.rooms.get(roomId);
+    if (!room) {
+      return null;
+    }
+
+    room.status = 'failed';
+    room.blockchainError = error;
+    this.pendingBlockchainRooms.delete(roomId);
+
+    this.setRoomTimeout(roomId, 30000);
+    console.log(`❌ Room activation failed: ${roomId} - ${error}`);
     return room;
   }
 
@@ -103,6 +135,7 @@ class RoomManager {
     const removedPlayer = room.players[playerIndex];
     room.players.splice(playerIndex, 1);
     this.playerRooms.delete(playerId);
+    this.pendingBlockchainRooms.delete(targetRoomId);
 
     // Handle room cleanup based on remaining players
     if (room.players.length === 0) {
@@ -134,6 +167,10 @@ class RoomManager {
     const room = this.rooms.get(roomId);
     if (!room) {
       throw new Error('Room not found');
+    }
+
+    if (room.status !== 'active') {
+      throw new Error('Game is not active');
     }
 
     room.gameState.moves.push({
@@ -175,6 +212,7 @@ class RoomManager {
     // Remove all players from tracking
     room.players.forEach(player => {
       this.playerRooms.delete(player.id);
+    this.pendingBlockchainRooms.delete(roomId);
     });
 
     // Clear any timeouts
@@ -212,6 +250,14 @@ class RoomManager {
     return Array.from(this.rooms.values()).filter(room => room.status === 'waiting');
   }
 
+  getPendingRooms() {
+    return Array.from(this.rooms.values()).filter(room => room.status === 'pending_blockchain');
+  }
+
+  getFinishedRooms() {
+    return Array.from(this.rooms.values()).filter(room => room.status === 'finished');
+  }
+
   getRoomStats() {
     const rooms = Array.from(this.rooms.values());
     return {
@@ -219,6 +265,8 @@ class RoomManager {
       waiting: rooms.filter(r => r.status === 'waiting').length,
       active: rooms.filter(r => r.status === 'active').length,
       finished: rooms.filter(r => r.status === 'finished').length,
+      pending: rooms.filter(r => r.status === 'pending_blockchain').length,
+      failed: rooms.filter(r => r.status === 'failed').length,
       totalPlayers: Array.from(this.playerRooms.keys()).length
     };
   }
@@ -234,7 +282,10 @@ class RoomManager {
         ? now - room.gameState.moves[room.gameState.moves.length - 1].timestamp
         : timeSinceCreated;
 
-      if (timeSinceLastActivity > maxInactiveTime) {
+      const shouldCleanup = timeSinceLastActivity > maxInactiveTime || 
+                           (room.status === 'failed' && timeSinceCreated > 60000);
+
+      if (shouldCleanup) {
         console.log(`🧹 Cleaning up inactive room: ${roomId}`);
         this.deleteRoom(roomId);
       }
